@@ -150,7 +150,7 @@ public:
     bool setPinout(uint8_t BCLK, uint8_t LRC, uint8_t DOUT, int8_t MCLK = I2S_GPIO_UNUSED);
     bool pauseResume();
     bool isRunning() {return m_f_running;}
-    void loop();
+    void loop(SemaphoreHandle_t sdMutex);
     uint32_t stopSong();
     void forceMono(bool m);
     void setBalance(int8_t bal = 0);
@@ -200,7 +200,7 @@ private:
   void            initInBuff();
   bool            httpPrint(const char* host);
   bool            httpRange(const char* host, uint32_t range);
-  void            processLocalFile();
+  void            processLocalFile(SemaphoreHandle_t sdMutex);
   void            processWebStream();
   void            processWebFile();
   void            processWebStreamTS();

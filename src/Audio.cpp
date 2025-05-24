@@ -2489,13 +2489,13 @@ exit:
     else log_e("i2s err %i", err);
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void Audio::loop() {
+void Audio::loop(SemaphoreHandle_t sdMutex) {
     if(!m_f_running) return;
 
     if(m_playlistFormat != FORMAT_M3U8) { // normal process
         switch(m_dataMode) {
             case AUDIO_LOCALFILE:
-                processLocalFile(); break;
+                processLocalFile(sdMutex); break;
             case HTTP_RESPONSE_HEADER:
                 static uint8_t count = 0;
                 if(!parseHttpResponseHeader()) {
@@ -3246,7 +3246,7 @@ bool Audio::STfromEXTINF(char* str) {
     return true;
 }
 //------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-void Audio::processLocalFile() {
+void Audio::processLocalFile(SemaphoreHandle_t sdMutex) {
     if(!(audiofile && m_f_running && m_dataMode == AUDIO_LOCALFILE)) return; // guard
 
     static uint32_t ctime = 0;
@@ -3259,6 +3259,7 @@ void Audio::processLocalFile() {
     int32_t         bytesAddedToBuffer = 0;
     int32_t         offset = 0;
 
+    xSemaphoreTake(sdMutex, portMAX_DELAY);
     if(m_f_firstCall) { // runs only one time per connection, prepare for start
         m_f_firstCall = false;
         m_f_stream = false;
@@ -3271,6 +3272,7 @@ void Audio::processLocalFile() {
         m_audioDataSize = 0;
         m_audioDataStart = 0;
         m_f_allDataReceived = false;
+        xSemaphoreGive(sdMutex);
         return;
     }
 
@@ -3287,6 +3289,7 @@ void Audio::processLocalFile() {
         audiofile.seek(newFilePos);
         m_f_allDataReceived = false;
         byteCounter = newFilePos;
+        xSemaphoreGive(sdMutex);
         return;
     }
 
@@ -3295,6 +3298,7 @@ void Audio::processLocalFile() {
     if(bytesAddedToBuffer > 0) {byteCounter += bytesAddedToBuffer; InBuff.bytesWritten(bytesAddedToBuffer);}
     if(m_audioDataSize && byteCounter >= m_audioDataSize){if(!m_f_allDataReceived) m_f_allDataReceived = true;}
     // log_e("byteCounter %u >= m_audioDataSize %u, m_f_allDataReceived % i", byteCounter, m_audioDataSize, m_f_allDataReceived);
+    xSemaphoreGive(sdMutex);
 
     if(newFilePos) { // we have a new file position
         if(InBuff.bufferFilled() < InBuff.getMaxBlockSize()) return;
